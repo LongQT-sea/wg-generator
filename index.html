@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WireGuard Config Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+        h1 {
+            color: #bb86fc;
+        }
+        h3 {
+            color: #bb86fc;
+            margin-top: 20px;
+        }
+        .container {
+            max-width: 840px;
+            margin: 0px auto;
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+            font-weight: bold;
+            color: #bb86fc;
+        }
+        input, select {
+            width: 98%;
+            padding: 8px;
+            margin-top: 5px;
+            border: 2px solid #333;
+            border-radius: 4px;
+            background-color: #2c2c2c;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+        button {
+            margin-top: 5px;
+            padding: 10px 15px;
+            background-color: #bb86fc;
+            color: #121212;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 17px;
+        }
+        button:hover {
+            background-color: #9c27b0;
+        }
+        .output {
+            margin-top: 20px;
+            background: #2c2c2c;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            color: #e0e0e0;
+        }
+        .rule-container {
+            margin-top: 12px;
+            border: 2px solid #333;
+            padding: 20px;
+            border-radius: 4px;
+            background-color: #2c2c2c;
+        }
+        .rule-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .rule-header h4 {
+            margin: 0;
+            font-size: 15px;
+            color: #bb86fc;
+        }
+        .rule-header span {
+            color: #ff6b6b;
+            cursor: pointer;
+            font-size: 15px;
+        }
+        .rule-fields {
+            display: grid;
+            grid-template-columns: 80px 1fr 1fr;
+            gap: 15px;
+        }
+        .rule-fields > div {
+            display: flex;
+            flex-direction: column;
+        }
+        .rule-fields label {
+            font-size: 12px;
+            margin-bottom: 5px;
+            color: #bb86fc;
+        }
+        .add-rule-button {
+            margin-top: 10px;
+            text-align: center;
+        }
+        footer {
+            margin-top: 0px;
+            padding: 20px 0;
+            background-color: #121212;
+            color: #e0e0e0;
+            text-align: center;
+            font-size: 14px;
+        }
+        footer a {
+            color: #bb86fc;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WireGuard Config Generator</h1>
+        <p>Fill in the following details to generate WireGuard configurations for both the server and its clients.</p>
+        <label for="server-address">Server Address or IP (FQDN or IP):</label>
+        <input type="text" id="server-address" placeholder="e.g., example.wireguard.fqdn or 1.2.3.4" value="example.wireguard.fqdn">
+        <label for="listen-port">Server Listen Port:</label>
+        <input type="text" id="listen-port" placeholder="e.g., 51820" value="51820">
+        <label for="subnet">WireGuard Subnet:</label>
+        <input type="text" id="subnet" placeholder="e.g., 172.30.0.0/24" value="172.30.0.0/24">
+        <label for="wan-interface">Server WAN Interface:</label>
+        <input type="text" id="wan-interface" placeholder="e.g., eth0, ens0" value="eth0">
+        <label for="num-clients">Number of Clients:</label>
+        <input type="number" id="num-clients" placeholder="e.g., 1 - 253" value="1">
+        <div id="port-forwarding-rules"></div>
+        <div class="add-rule-button">
+            <button onclick="addPortForwardingRule()">Add Port Forwarding Rule</button>
+        </div>
+        <div class="add-rule-button">
+            <button onclick="generateConfigs()">Generate Configs</button>
+        </div>
+        <div class="output" id="output"></div>
+    </div>
+    <footer>
+        &copy; 2025 LongQT-sea. All rights reserved.
+        <br>
+        Source and guide:
+        <a href="https://github.com/LongQT-sea/wg-generator" target="_blank">Github</a>
+    </footer>
+    <script src="wireguard.js"></script>
+    <script>
+        let ruleCounter = 0;
+
+        function addPortForwardingRule() {
+            const container = document.getElementById('port-forwarding-rules');
+            const ruleId = `rule-${ruleCounter++}`;
+            const ruleDiv = document.createElement('div');
+
+            ruleDiv.id = ruleId;
+            ruleDiv.classList.add('rule-container');
+
+            ruleDiv.innerHTML = `
+                <div class="rule-header">
+                    <h4>Rule ${ruleCounter}</h4>
+                    <span id="${ruleId}-remove">Remove</span>
+                </div>
+                <div class="rule-fields">
+                    <div>
+                        <label for="${ruleId}-protocol">Protocol:</label>
+                        <select id="${ruleId}-protocol">
+                            <option value="tcp">TCP</option>
+                            <option value="udp">UDP</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="${ruleId}-port">Port(s):</label>
+                        <input type="text" id="${ruleId}-port" placeholder="e.g., 5000 or 20000:20200 for port range">
+                    </div>
+                    <div>
+                        <label for="${ruleId}-destination">Destination IP:</label>
+                        <input type="text" id="${ruleId}-destination" placeholder="e.g., 172.30.0.2" value="172.30.0.2">
+                    </div>
+                </div>
+            `;
+
+            const removeButton = ruleDiv.querySelector(`#${ruleId}-remove`);
+            removeButton.addEventListener('click', () => removeRule(ruleId));
+            container.appendChild(ruleDiv);
+        }
+
+        function removeRule(ruleId) {
+            const ruleDiv = document.getElementById(ruleId);
+            ruleDiv.remove();
+        }
+
+        function generateConfigs() {
+            const serverAddress = document.getElementById('server-address').value.trim();
+            const serverPort = document.getElementById('listen-port').value.trim();
+            const subnet = document.getElementById('subnet').value.trim();
+            const wanInterface = document.getElementById('wan-interface').value.trim();
+            const numClients = parseInt(document.getElementById('num-clients').value.trim(), 10);
+            if (isNaN(numClients) || numClients < 1 || numClients > 253) {
+                alert("Number of clients must be between 1 and 253.");
+                return;
+            }
+            if (!serverAddress || !serverPort || !subnet || !wanInterface) {
+                alert("Please fill in all required fields");
+                return;
+            }
+            const [subnetBase, cidr] = subnet.split('/');
+            const subnetParts = subnetBase.split('.');
+            const baseIp = `${subnetParts[0]}.${subnetParts[1]}.${subnetParts[2]}.`;
+            const serverIp = `${baseIp}1/${cidr}`;
+            const serverKeys = window.wireguard.generateKeypair();
+
+            let serverConfig = `
+[Interface]
+PrivateKey = ${serverKeys.privateKey}
+Address = ${serverIp}
+ListenPort = ${serverPort}
+
+# Enable IP Forward
+PostUp = sysctl -w net.ipv4.ip_forward=1
+
+# Enable NAT
+PostUp = iptables -t filter -A FORWARD -i %i -j ACCEPT
+PostUp = iptables -t nat -A POSTROUTING -s ${subnet} ! -d ${subnet} -j MASQUERADE
+
+# Fix possible TCP MSS Clamping issue
+PostUp = iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+
+# Cleanup post down
+PostDown = iptables -t filter -D FORWARD -i %i -j ACCEPT
+PostDown = iptables -t nat -D POSTROUTING -s ${subnet} ! -d ${subnet} -j MASQUERADE
+PostDown = iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+`;
+
+            const portForwardingRules = [];
+            document.querySelectorAll('.rule-container').forEach(ruleDiv => {
+                const protocol = ruleDiv.querySelector('select').value;
+                const port = ruleDiv.querySelector('input[id$="-port"]').value.trim();
+                const destination = ruleDiv.querySelector('input[id$="-destination"]').value.trim();
+                if (protocol && port && destination) {
+                    portForwardingRules.push({ protocol, port, destination });
+                }
+            });
+
+            portForwardingRules.forEach(({ protocol, port, destination }) => {
+                serverConfig += `
+PostUp = iptables -t nat -A PREROUTING -i ${wanInterface} -p ${protocol} --dport ${port} -j DNAT --to-destination ${destination}
+PostDown = iptables -t nat -D PREROUTING -i ${wanInterface} -p ${protocol} --dport ${port} -j DNAT --to-destination ${destination}
+`;
+            });
+
+            let clientConfigs = [];
+            for (let i = 1; i <= numClients; i++) {
+                const clientIp = `${baseIp}${i + 1}/${cidr}`;
+                const clientKeys = window.wireguard.generateKeypair();
+
+                serverConfig += `
+[Peer]
+PublicKey = ${clientKeys.publicKey}
+AllowedIPs = ${clientIp.split('/')[0]}/32
+`;
+
+                const clientConfig = `
+[Interface]
+PrivateKey = ${clientKeys.privateKey}
+Address = ${clientIp}
+DNS = 8.8.8.8
+
+[Peer]
+PublicKey = ${serverKeys.publicKey}
+Endpoint = ${serverAddress}:${serverPort}
+AllowedIPs = 0.0.0.0/0
+PersistentKeepalive = 25
+`;
+
+                clientConfigs.push(clientConfig);
+            }
+
+            let output = `<h3>### Server configuration</h3>\n${serverConfig}\n\n`;
+            clientConfigs.forEach((config, index) => {
+                output += `<h3>### Client ${index + 1} configuration</h3>\n${config}\n\n`;
+            });
+
+            const outputDiv = document.getElementById('output');
+            outputDiv.innerHTML = output;
+        }
+    </script>
+</body>
+</html>
