@@ -125,13 +125,14 @@
     <div class="container">
         <h1>WireGuard Config Generator</h1>
         <p>Fill in the following details to generate WireGuard configurations for both the server and its clients.</p>
+        <p>For most users, you probably only need to add the server address and change the number of clients.</p>
         <label for="server-address">Server Address or IP (FQDN or IP):</label>
         <input type="text" id="server-address" placeholder="e.g., example.wireguard.fqdn or 1.2.3.4" value="example.wireguard.fqdn">
         <label for="listen-port">Server Listen Port:</label>
         <input type="text" id="listen-port" placeholder="e.g., 51820" value="51820">
         <label for="subnet">WireGuard IPv4 Subnet:</label>
         <input type="text" id="subnet" placeholder="e.g., 172.30.0.0/24" value="172.30.0.0/24">
-        <label for="subnet">WireGuard IPv6 Subnet:</label>
+        <label for="subnet_ipv6">WireGuard IPv6 Subnet:</label>
         <input type="text" id="subnet_ipv6" placeholder="e.g., dddd:beef:b00b::0/64" value="dddd:beef:b00b::0/64">
         <label for="wan-interface">Server WAN Interface:</label>
         <input type="text" id="wan-interface" placeholder="e.g., eth0, ens3" value="eth0">
