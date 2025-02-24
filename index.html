@@ -129,10 +129,12 @@
         <input type="text" id="server-address" placeholder="e.g., example.wireguard.fqdn or 1.2.3.4" value="example.wireguard.fqdn">
         <label for="listen-port">Server Listen Port:</label>
         <input type="text" id="listen-port" placeholder="e.g., 51820" value="51820">
-        <label for="subnet">WireGuard Subnet:</label>
+        <label for="subnet">WireGuard IPv4 Subnet:</label>
         <input type="text" id="subnet" placeholder="e.g., 172.30.0.0/24" value="172.30.0.0/24">
+        <label for="subnet">WireGuard IPv6 Subnet:</label>
+        <input type="text" id="subnet_ipv6" placeholder="e.g., dddd:beef:b00b::0/64" value="dddd:beef:b00b::0/64">
         <label for="wan-interface">Server WAN Interface:</label>
-        <input type="text" id="wan-interface" placeholder="e.g., eth0, ens0" value="eth0">
+        <input type="text" id="wan-interface" placeholder="e.g., eth0, ens3" value="eth0">
         <label for="num-clients">Number of Clients:</label>
         <input type="number" id="num-clients" placeholder="e.g., 1 - 253" value="1">
         <div id="port-forwarding-rules"></div>
@@ -200,13 +202,14 @@
             const serverAddress = document.getElementById('server-address').value.trim();
             const serverPort = document.getElementById('listen-port').value.trim();
             const subnet = document.getElementById('subnet').value.trim();
+            const subnetIPv6 = document.getElementById('subnet_ipv6').value.trim();
             const wanInterface = document.getElementById('wan-interface').value.trim();
             const numClients = parseInt(document.getElementById('num-clients').value.trim(), 10);
             if (isNaN(numClients) || numClients < 1 || numClients > 253) {
                 alert("Number of clients must be between 1 and 253.");
                 return;
             }
-            if (!serverAddress || !serverPort || !subnet || !wanInterface) {
+            if (!serverAddress || !serverPort || !subnet || !wanInterface || !subnetIPv6) {
                 alert("Please fill in all required fields");
                 return;
             }
@@ -214,68 +217,87 @@
             const subnetParts = subnetBase.split('.');
             const baseIp = `${subnetParts[0]}.${subnetParts[1]}.${subnetParts[2]}.`;
             const serverIp = `${baseIp}1/${cidr}`;
+            const [subnetBaseIPv6, cidrIPv6] = subnetIPv6.split('/');
+            const serverIpIPv6 = `${subnetBaseIPv6.replace('::0', '::1')}/${cidrIPv6}`;
             const serverKeys = window.wireguard.generateKeypair();
 
             let serverConfig = `
 [Interface]
 PrivateKey = ${serverKeys.privateKey}
-Address = ${serverIp}
+Address = ${serverIp}, ${serverIpIPv6}
 ListenPort = ${serverPort}
 
 # Enable IP Forward
 PostUp = sysctl -w net.ipv4.ip_forward=1
+PostUp = sysctl -w net.ipv6.conf.all.forwarding=1
 
 # Enable NAT
 PostUp = iptables -t filter -A FORWARD -i %i -j ACCEPT
 PostUp = iptables -t nat -A POSTROUTING -s ${subnet} ! -d ${subnet} -j MASQUERADE
+PostUp = ip6tables -t filter -A FORWARD -i %i -j ACCEPT
+PostUp = ip6tables -t nat -A POSTROUTING -s ${subnetIPv6} ! -d ${subnetIPv6} -j MASQUERADE
 
 # Fix possible TCP MSS Clamping issue
 PostUp = iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+PostUp = ip6tables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 
 # Cleanup post down
 PostDown = iptables -t filter -D FORWARD -i %i -j ACCEPT
 PostDown = iptables -t nat -D POSTROUTING -s ${subnet} ! -d ${subnet} -j MASQUERADE
 PostDown = iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+PostDown = ip6tables -t filter -D FORWARD -i %i -j ACCEPT
+PostDown = ip6tables -t nat -D POSTROUTING -s ${subnetIPv6} ! -d ${subnetIPv6} -j MASQUERADE
+PostDown = ip6tables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 `;
+
+            function mapIPv4ToIPv6(ipv4) {
+                const ipv4Parts = ipv4.split('.');
+                const lastOctet = ipv4Parts[ipv4Parts.length - 1];
+                return `${subnetBaseIPv6.replace('::0', `::${lastOctet}`)}`;
+            }
 
             const portForwardingRules = [];
             document.querySelectorAll('.rule-container').forEach(ruleDiv => {
                 const protocol = ruleDiv.querySelector('select').value;
                 const port = ruleDiv.querySelector('input[id$="-port"]').value.trim();
-                const destination = ruleDiv.querySelector('input[id$="-destination"]').value.trim();
-                if (protocol && port && destination) {
-                    portForwardingRules.push({ protocol, port, destination });
+                const destinationIPv4 = ruleDiv.querySelector('input[id$="-destination"]').value.trim();
+                if (protocol && port && destinationIPv4) {
+                    const destinationIPv6 = mapIPv4ToIPv6(destinationIPv4);
+                    portForwardingRules.push({ protocol, port, destinationIPv4, destinationIPv6 });
                 }
             });
 
-            portForwardingRules.forEach(({ protocol, port, destination }) => {
+            portForwardingRules.forEach(({ protocol, port, destinationIPv4, destinationIPv6 }) => {
                 serverConfig += `
-PostUp = iptables -t nat -A PREROUTING -i ${wanInterface} -p ${protocol} --dport ${port} -j DNAT --to-destination ${destination}
-PostDown = iptables -t nat -D PREROUTING -i ${wanInterface} -p ${protocol} --dport ${port} -j DNAT --to-destination ${destination}
+PostUp = iptables -t nat -A PREROUTING -i ${wanInterface} -p ${protocol} --dport ${port} -j DNAT --to-destination ${destinationIPv4}
+PostUp = ip6tables -t nat -A PREROUTING -i ${wanInterface} -p ${protocol} --dport ${port} -j DNAT --to-destination ${destinationIPv6}
+PostDown = iptables -t nat -D PREROUTING -i ${wanInterface} -p ${protocol} --dport ${port} -j DNAT --to-destination ${destinationIPv4}
+PostDown = ip6tables -t nat -D PREROUTING -i ${wanInterface} -p ${protocol} --dport ${port} -j DNAT --to-destination ${destinationIPv6}
 `;
             });
 
             let clientConfigs = [];
             for (let i = 1; i <= numClients; i++) {
                 const clientIp = `${baseIp}${i + 1}/${cidr}`;
+                const clientIpIPv6 = `${subnetBaseIPv6.replace('::0', `::${i + 1}`)}/${cidrIPv6}`;
                 const clientKeys = window.wireguard.generateKeypair();
 
                 serverConfig += `
 [Peer]
 PublicKey = ${clientKeys.publicKey}
-AllowedIPs = ${clientIp.split('/')[0]}/32
+AllowedIPs = ${clientIp.split('/')[0]}/32, ${clientIpIPv6.split('/')[0]}/128
 `;
 
                 const clientConfig = `
 [Interface]
 PrivateKey = ${clientKeys.privateKey}
-Address = ${clientIp}
-DNS = 8.8.8.8
+Address = ${clientIp}, ${clientIpIPv6}
+DNS = 8.8.8.8, 2001:4860:4860::8888
 
 [Peer]
 PublicKey = ${serverKeys.publicKey}
 Endpoint = ${serverAddress}:${serverPort}
-AllowedIPs = 0.0.0.0/0
+AllowedIPs = 0.0.0.0/0, ::/0
 PersistentKeepalive = 25
 `;
 

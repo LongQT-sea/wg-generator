@@ -2,9 +2,9 @@
 ## [https://longqt-sea.github.io/wg-generator](https://longqt-sea.github.io/wg-generator/)
 
 ## Usage
-1. Fill in the required fields (server address, subnet, number of clients, etc.).
+1. For most users, you probably only need to add the server address or server public IP and change the number of clients if needed.
 2. Press Generate configs and review the output.
-3. Replace the config in the script [wireguard_install.sh](https://github.com/LongQT-sea/wg-generator/blob/main/wireguard_install.sh) with the one you generated and run the script to install.
+3. Replace the configuration in the script [wireguard_install.sh](https://github.com/LongQT-sea/wg-generator/blob/main/wireguard_install.sh) with the one you generated and run the script to install.
 
 ## Key Features
 Generates WireGuard configuration files for Ubuntu and Debian servers and multiple clients.
