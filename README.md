@@ -2,7 +2,7 @@
 ## [https://longqt-sea.github.io/wg-generator](https://longqt-sea.github.io/wg-generator/)
 
 ## Usage
-1. For most users, you probably only need to add the server address or server public IP and change the number of clients if needed.
+1. For most users, you’ll likely only need to specify the server address and adjust the number of clients.
 2. Press Generate configs and review the output.
 3. Replace the configuration in the script [wireguard_install.sh](https://github.com/LongQT-sea/wg-generator/blob/main/wireguard_install.sh) with the one you generated and run the script to install.
 
@@ -17,8 +17,7 @@ For secure and production-ready WireGuard deployments:
 - Use this tool only as a template generator to simplify the creation of WireGuard configuration files.
 
 ## Credits
-The wireguard.js file used in this repo is part of the official [wireguard-tools](https://git.zx2c4.com/wireguard-tools) repository. Original author: Jason A. Donenfeld (@zx2c4 ).
-Copyright (C) 2015-2020 Jason A. Donenfeld Jason@zx2c4.com . All Rights Reserved.
+The wireguard.js file used in this repo is part of the official [wireguard-tools](https://git.zx2c4.com/wireguard-tools) repository, original author: Jason A. Donenfeld <Jason@zx2c4.com>.
 
 ## Disclaimer
 This tool is provided "as-is" without any warranties. Use it at your own risk.

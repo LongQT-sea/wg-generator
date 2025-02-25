@@ -124,20 +124,24 @@
 <body>
     <div class="container">
         <h1>WireGuard Config Generator</h1>
-        <p>Fill in the following details to generate WireGuard configurations for both the server and its clients.</p>
-        <p>For most users, you probably only need to add the server address and change the number of clients.</p>
+        <p>Fill in the details below to generate WireGuard configuration files for both the server and its clients.</p>
+        <p>For most users, you’ll likely only need to specify the server address and adjust the number of clients.</p>
         <label for="server-address">Server Address or IP (FQDN or IP):</label>
         <input type="text" id="server-address" placeholder="e.g., example.wireguard.fqdn or 1.2.3.4" value="example.wireguard.fqdn">
+        <label for="num-clients">Number of Clients:</label>
+        <input type="number" id="num-clients" placeholder="e.g., 1 - 253" value="1">
         <label for="listen-port">Server Listen Port:</label>
-        <input type="text" id="listen-port" placeholder="e.g., 51820" value="51820">
+        <input type="number" id="listen-port" placeholder="e.g., 51820" value="51820">
         <label for="subnet">WireGuard IPv4 Subnet:</label>
         <input type="text" id="subnet" placeholder="e.g., 172.30.0.0/24" value="172.30.0.0/24">
         <label for="subnet_ipv6">WireGuard IPv6 Subnet:</label>
-        <input type="text" id="subnet_ipv6" placeholder="e.g., dddd:beef:b00b::0/64" value="dddd:beef:b00b::0/64">
-        <label for="wan-interface">Server WAN Interface:</label>
+        <input type="text" id="subnet_ipv6" placeholder="e.g., dead:beef:b00b::/64" value="dead:beef:b00b::/64">
+        <label for="wan-interface">Server WAN Interface (Required for Port Forwarding):</label>
         <input type="text" id="wan-interface" placeholder="e.g., eth0, ens3" value="eth0">
-        <label for="num-clients">Number of Clients:</label>
-        <input type="number" id="num-clients" placeholder="e.g., 1 - 253" value="1">
+        <label for="allowed-ips">Client Allowed IPs:</label>
+        <input type="text" id="allowed-ips" placeholder="e.g., 0.0.0.0/0, ::/0, 172.30.0.0/24, dead:beef:b00b::/64" value="0.0.0.0/0, ::/0">
+        <label for="client-dns">Client DNS:</label>
+        <input type="text" id="client-dns" placeholder="e.g., 8.8.8.8, 2001:4860:4860::8888" value="8.8.8.8, 2001:4860:4860::8888">
         <div id="port-forwarding-rules"></div>
         <div class="add-rule-button">
             <button onclick="addPortForwardingRule()">Add Port Forwarding Rule</button>
@@ -148,9 +152,9 @@
         <div class="output" id="output"></div>
     </div>
     <footer>
-        &copy; 2025 LongQT-sea. All rights reserved.
+        &copy; 2025 LongQT
         <br>
-        Source and guide:
+        Source and how to guide:
         <a href="https://github.com/LongQT-sea/wg-generator" target="_blank">Github</a>
     </footer>
     <script src="wireguard.js"></script>
@@ -205,6 +209,8 @@
             const subnet = document.getElementById('subnet').value.trim();
             const subnetIPv6 = document.getElementById('subnet_ipv6').value.trim();
             const wanInterface = document.getElementById('wan-interface').value.trim();
+            const allowedIps = document.getElementById('allowed-ips').value.trim();
+            const clientDNS = document.getElementById('client-dns').value.trim();
             const numClients = parseInt(document.getElementById('num-clients').value.trim(), 10);
             if (isNaN(numClients) || numClients < 1 || numClients > 253) {
                 alert("Number of clients must be between 1 and 253.");
@@ -219,7 +225,7 @@
             const baseIp = `${subnetParts[0]}.${subnetParts[1]}.${subnetParts[2]}.`;
             const serverIp = `${baseIp}1/${cidr}`;
             const [subnetBaseIPv6, cidrIPv6] = subnetIPv6.split('/');
-            const serverIpIPv6 = `${subnetBaseIPv6.replace('::0', '::1')}/${cidrIPv6}`;
+            const serverIpIPv6 = `${subnetBaseIPv6.replace('::', '::1')}/${cidrIPv6}`;
             const serverKeys = window.wireguard.generateKeypair();
 
             let serverConfig = `
@@ -254,7 +260,7 @@ PostDown = ip6tables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPM
             function mapIPv4ToIPv6(ipv4) {
                 const ipv4Parts = ipv4.split('.');
                 const lastOctet = ipv4Parts[ipv4Parts.length - 1];
-                return `${subnetBaseIPv6.replace('::0', `::${lastOctet}`)}`;
+                return `${subnetBaseIPv6.replace('::', `::${lastOctet}`)}`;
             }
 
             const portForwardingRules = [];
@@ -280,7 +286,7 @@ PostDown = ip6tables -t nat -D PREROUTING -i ${wanInterface} -p ${protocol} --dp
             let clientConfigs = [];
             for (let i = 1; i <= numClients; i++) {
                 const clientIp = `${baseIp}${i + 1}/${cidr}`;
-                const clientIpIPv6 = `${subnetBaseIPv6.replace('::0', `::${i + 1}`)}/${cidrIPv6}`;
+                const clientIpIPv6 = `${subnetBaseIPv6.replace('::', `::${i + 1}`)}/${cidrIPv6}`;
                 const clientKeys = window.wireguard.generateKeypair();
 
                 serverConfig += `
@@ -293,12 +299,12 @@ AllowedIPs = ${clientIp.split('/')[0]}/32, ${clientIpIPv6.split('/')[0]}/128
 [Interface]
 PrivateKey = ${clientKeys.privateKey}
 Address = ${clientIp}, ${clientIpIPv6}
-DNS = 8.8.8.8, 2001:4860:4860::8888
+DNS = ${clientDNS}
 
 [Peer]
 PublicKey = ${serverKeys.publicKey}
 Endpoint = ${serverAddress}:${serverPort}
-AllowedIPs = 0.0.0.0/0, ::/0
+AllowedIPs = ${allowedIps}
 PersistentKeepalive = 25
 `;
 
