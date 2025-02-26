@@ -15,27 +15,23 @@
             color: #e0e0e0;
             overflow-y: scroll;
         }
-
         h1, h3 {
             color: #bb86fc;
         }
-
         .container {
-            max-width: 840px;
+            max-width: 870px;
             margin: 0 auto;
             background: #1e1e1e;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
         }
-
         label {
             display: block;
             margin-top: 15px;
             font-weight: bold;
             color: #c392ff;
         }
-
         input, select {
             width: 98%;
             padding: 7px;
@@ -47,7 +43,6 @@
             color: #e0e0e0;
             font-size: 15px;
         }
-
         button {
             display: block;
             width: 50%;
@@ -62,11 +57,9 @@
             font-size: 16px;
             transition: background-color 0.3s ease;
         }
-
         button:hover {
             background-color: #9c27b0;
         }
-
         .output {
             margin-top: 20px;
             background: #2c2c2c;
@@ -77,7 +70,6 @@
             white-space: pre-wrap;
             color: #e0e0e0;
         }
-
         .rule-container {
             margin-top: 12px;
             border: 2px solid #333;
@@ -85,47 +77,39 @@
             border-radius: 4px;
             background-color: #2c2c2c;
         }
-
         .rule-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 5px;
         }
-
         .rule-header h4 {
             margin: 0;
             font-size: 15px;
             color: #bb86fc;
         }
-
         .rule-header span {
             color: #ff6b6b;
             cursor: pointer;
             font-size: 15px;
         }
-
         .rule-fields {
             display: grid;
             grid-template-columns: 80px 1fr 1fr;
             gap: 15px;
         }
-
         .rule-fields > div {
             display: flex;
             flex-direction: column;
         }
-
         .rule-fields label {
             font-size: 12px;
             margin-bottom: 5px;
             color: #bb86fc;
         }
-
         .advanced-fields {
             display: none;
         }
-
         footer {
             margin-top: 5px;
             padding: 15px 0;
@@ -134,24 +118,28 @@
             text-align: center;
             font-size: 14px;
         }
-
         footer a {
             color: #53a1fc;
             font-weight: bold;
-            text-decoration: underline;
+            text-decoration: none;
         }
-
         .config-block {
             margin-bottom: 15px;
         }
-
-        .config-block pre {
-            white-space: pre-wrap;
-            overflow-x: auto;
-            word-break: break-all;
+        .output-textarea {
+            width: 100%;
             margin-bottom: 10px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 13px;
+            background-color: #2c2c2c;
+            color: #e0e0e0;
+            border: 1px solid #333;
+            border-radius: 4px;
+            resize: none;
+            overflow: hidden;
+            box-sizing: border-box;
         }
-
         .copy-button {
             width: 30%;
             background-color: #bb86fc;
@@ -163,10 +151,26 @@
             cursor: pointer;
             transition: background-color 0.3s ease;
             text-align: center;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
         }
-
         .copy-button:hover {
             background-color: #9c27b0;
+        }
+        @media (max-width: 768px) {
+            .output-textarea {
+                font-size: 12px;
+                padding: 8px;
+            }
+            .config-block {
+                margin-bottom: 5px;
+            }
+            .copy-button {
+                width: 45%;
+                font-size: 12px;
+            }
         }
     </style>
 </head>
@@ -175,30 +179,38 @@
         <h1>WireGuard Config Generator</h1>
         <p>Fill in the details below to generate WireGuard configuration files for both the server and its clients.</p>
         <p>For most users, you’ll likely only need to specify the server address and adjust the number of clients.</p>
-        <label for="server-address">Server Address or IP (FQDN or IP):</label>
+        <label for="server-address">Server Address or IP:</label>
         <input type="text" id="server-address" placeholder="e.g., example.wireguard.fqdn or 1.2.3.4" value="example.wireguard.fqdn">
+
         <label for="num-clients">Number of Clients:</label>
         <input type="number" id="num-clients" placeholder="e.g., 1 - 253" value="1">
+
         <label for="listen-port">Server Listen Port:</label>
         <input type="number" id="listen-port" placeholder="e.g., 51820" value="51820">
+
+        <button id="toggle-advanced">Show Advanced Options</button>
         <div class="advanced-fields" id="advanced-fields">
             <label for="subnet">WireGuard IPv4 Subnet:</label>
             <input type="text" id="subnet" placeholder="e.g., 172.30.0.0/24" value="172.30.0.0/24">
+
             <label for="subnet_ipv6">WireGuard IPv6 Subnet:</label>
             <input type="text" id="subnet_ipv6" placeholder="e.g., dead:beef:b00b::/64" value="dead:beef:b00b::/64">
-            <label for="wan-interface">Server WAN Interface (Required for Port Forwarding):</label>
+
+            <label for="wan-interface">Server WAN Interface:</label>
             <input type="text" id="wan-interface" placeholder="e.g., eth0, ens3" value="eth0">
+
             <label for="allowed-ips">Client Allowed IPs:</label>
             <input type="text" id="allowed-ips" placeholder="e.g., 0.0.0.0/0, ::/0, 172.30.0.0/24, dead:beef:b00b::/64" value="0.0.0.0/0, ::/0">
+
             <label for="client-dns">Client DNS:</label>
             <input type="text" id="client-dns" placeholder="e.g., 8.8.8.8, 2001:4860:4860::8888" value="8.8.8.8, 2001:4860:4860::8888">
+
             <button onclick="addPortForwardingRule()">Add Port Forwarding Rule</button>
             <div id="port-forwarding-rules"></div>
         </div>
 
-        <button id="toggle-advanced">Show Advanced Options</button>
-
         <button onclick="generateConfigs()">Generate Configs</button>
+
         <div class="output" id="output"></div>
     </div>
     <footer>
@@ -207,11 +219,9 @@
         Source and how to guide:
         <a href="https://github.com/LongQT-sea/wg-generator" target="_blank">Github</a>
     </footer>
-    <script src="wireguard.js"></script>
     <script>
         const advancedFields = document.getElementById('advanced-fields');
         const toggleButton = document.getElementById('toggle-advanced');
-
         let isAdvancedMode = false;
 
         toggleButton.addEventListener('click', () => {
@@ -269,6 +279,11 @@
             ruleDiv.remove();
         }
 
+        function autoResizeTextarea(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = `${textarea.scrollHeight}px`;
+        }
+
         function generateConfigs() {
             const serverAddress = document.getElementById('server-address').value.trim();
             const serverPort = document.getElementById('listen-port').value.trim();
@@ -278,6 +293,7 @@
             const allowedIps = document.getElementById('allowed-ips').value.trim();
             const clientDNS = document.getElementById('client-dns').value.trim();
             const numClients = parseInt(document.getElementById('num-clients').value.trim(), 10);
+
             if (isNaN(numClients) || numClients < 1 || numClients > 253) {
                 alert("Number of clients must be between 1 and 253.");
                 return;
@@ -286,6 +302,7 @@
                 alert("Please fill in all required fields");
                 return;
             }
+
             const [subnetBase, cidr] = subnet.split('/');
             const subnetParts = subnetBase.split('.');
             const baseIp = `${subnetParts[0]}.${subnetParts[1]}.${subnetParts[2]}.`;
@@ -354,13 +371,10 @@ PostDown = ip6tables -t nat -D PREROUTING -i ${wanInterface} -p ${protocol} --dp
                 const clientIp = `${baseIp}${i + 1}/${cidr}`;
                 const clientIpIPv6 = `${subnetBaseIPv6.replace('::', `::${i + 1}`)}/${cidrIPv6}`;
                 const clientKeys = window.wireguard.generateKeypair();
-
                 serverConfig += `
 [Peer]
 PublicKey = ${clientKeys.publicKey}
-AllowedIPs = ${clientIp.split('/')[0]}/32, ${clientIpIPv6.split('/')[0]}/128
-`;
-
+AllowedIPs = ${clientIp.split('/')[0]}/32, ${clientIpIPv6.split('/')[0]}/128`;
                 const clientConfig = `
 [Interface]
 PrivateKey = ${clientKeys.privateKey}
@@ -371,23 +385,26 @@ DNS = ${clientDNS}
 PublicKey = ${serverKeys.publicKey}
 Endpoint = ${serverAddress}:${serverPort}
 AllowedIPs = ${allowedIps}
-PersistentKeepalive = 25
-`;
-
+PersistentKeepalive = 25`;
                 clientConfigs.push(clientConfig);
             }
 
             let output = '';
             output += `<h3>### Server configuration</h3>`;
-            output += `<div class="config-block"><pre>${serverConfig}</pre><button class="copy-button" data-clipboard="${encodeURIComponent(serverConfig)}">Copy</button></div>\n\n`;
-
+            output += `<div class="config-block"><textarea class="output-textarea" readonly>${serverConfig}</textarea><button class="copy-button" data-clipboard="${encodeURIComponent(serverConfig)}">Copy</button></div>\n\n`;
             clientConfigs.forEach((config, index) => {
                 output += `<h3>### Client ${index + 1} configuration</h3>`;
-                output += `<div class="config-block"><pre>${config}</pre><button class="copy-button" data-clipboard="${encodeURIComponent(config)}">Copy</button></div>\n\n`;
+                output += `<div class="config-block"><textarea class="output-textarea" readonly>${config}</textarea><button class="copy-button" data-clipboard="${encodeURIComponent(config)}">Copy</button></div>\n\n`;
             });
-
             const outputDiv = document.getElementById('output');
             outputDiv.innerHTML = output;
+
+            document.querySelectorAll('.output-textarea').forEach(textarea => {
+                autoResizeTextarea(textarea);
+                textarea.addEventListener('focus', () => {
+                    textarea.select();
+                });
+            });
 
             document.querySelectorAll('.copy-button').forEach(button => {
                 button.addEventListener('click', () => {
@@ -402,5 +419,6 @@ PersistentKeepalive = 25
             });
         }
     </script>
+    <script src="wireguard.js" defer ></script>
 </body>
 </html>
