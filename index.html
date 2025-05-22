@@ -196,9 +196,6 @@
             <label for="subnet_ipv6">WireGuard IPv6 Subnet:</label>
             <input type="text" id="subnet_ipv6" placeholder="e.g., dead:beef:b00b::/64" value="dead:beef:b00b::/64">
 
-            <label for="wan-interface">Server WAN Interface:</label>
-            <input type="text" id="wan-interface" placeholder="e.g., eth0, ens3" value="eth0">
-
             <label for="allowed-ips">Client Allowed IPs:</label>
             <input type="text" id="allowed-ips" placeholder="e.g., 0.0.0.0/0, ::/0, 172.30.0.0/24, dead:beef:b00b::/64" value="0.0.0.0/0, ::/0">
 
@@ -219,10 +216,96 @@
         Source and how to guide:
         <a href="https://github.com/LongQT-sea/wg-generator" target="_blank">Github</a>
     </footer>
-    <script>
+<script>
         const advancedFields = document.getElementById('advanced-fields');
         const toggleButton = document.getElementById('toggle-advanced');
         let isAdvancedMode = false;
+        let ruleCounter = 0;
+
+        // LOCALSTORAGE: Define keys for localStorage
+        const LS_KEYS = {
+            SERVER_ADDRESS: 'wgGen-serverAddress',
+            NUM_CLIENTS: 'wgGen-numClients',
+            LISTEN_PORT: 'wgGen-listenPort',
+            SUBNET: 'wgGen-subnet',
+            SUBNET_IPV6: 'wgGen-subnetIPv6',
+            ALLOWED_IPS: 'wgGen-allowedIps',
+            CLIENT_DNS: 'wgGen-clientDns',
+            IS_ADVANCED_MODE: 'wgGen-isAdvancedMode',
+            PORT_FORWARDING_RULES: 'wgGen-portForwardingRules'
+        };
+
+        // LOCALSTORAGE: Function to save settings
+        function saveSettings() {
+            localStorage.setItem(LS_KEYS.SERVER_ADDRESS, document.getElementById('server-address').value.trim());
+            localStorage.setItem(LS_KEYS.NUM_CLIENTS, document.getElementById('num-clients').value.trim());
+            localStorage.setItem(LS_KEYS.LISTEN_PORT, document.getElementById('listen-port').value.trim());
+            localStorage.setItem(LS_KEYS.SUBNET, document.getElementById('subnet').value.trim());
+            localStorage.setItem(LS_KEYS.SUBNET_IPV6, document.getElementById('subnet_ipv6').value.trim());
+            localStorage.setItem(LS_KEYS.ALLOWED_IPS, document.getElementById('allowed-ips').value.trim());
+            localStorage.setItem(LS_KEYS.CLIENT_DNS, document.getElementById('client-dns').value.trim());
+            localStorage.setItem(LS_KEYS.IS_ADVANCED_MODE, isAdvancedMode.toString());
+
+            const rules = [];
+            document.querySelectorAll('.rule-container').forEach(ruleDiv => {
+                const protocol = ruleDiv.querySelector('select[id$="-protocol"]').value;
+                const port = ruleDiv.querySelector('input[id$="-port"]').value.trim();
+                const destinationIPv4 = ruleDiv.querySelector('input[id$="-destination"]').value.trim();
+                // Only save if all fields for a rule are present, to avoid saving incomplete new rules
+                if (protocol && port && destinationIPv4) {
+                     rules.push({ protocol, port, destinationIPv4 });
+                }
+            });
+            localStorage.setItem(LS_KEYS.PORT_FORWARDING_RULES, JSON.stringify(rules));
+        }
+
+        // LOCALSTORAGE: Function to load settings
+        function loadSettings() {
+            const serverAddress = localStorage.getItem(LS_KEYS.SERVER_ADDRESS);
+            if (serverAddress !== null) document.getElementById('server-address').value = serverAddress;
+
+            const numClients = localStorage.getItem(LS_KEYS.NUM_CLIENTS);
+            if (numClients !== null) document.getElementById('num-clients').value = numClients;
+
+            const listenPort = localStorage.getItem(LS_KEYS.LISTEN_PORT);
+            if (listenPort !== null) document.getElementById('listen-port').value = listenPort;
+
+            const subnet = localStorage.getItem(LS_KEYS.SUBNET);
+            if (subnet !== null) document.getElementById('subnet').value = subnet;
+
+            const subnetIPv6 = localStorage.getItem(LS_KEYS.SUBNET_IPV6);
+            if (subnetIPv6 !== null) document.getElementById('subnet_ipv6').value = subnetIPv6;
+
+            const allowedIps = localStorage.getItem(LS_KEYS.ALLOWED_IPS);
+            if (allowedIps !== null) document.getElementById('allowed-ips').value = allowedIps;
+
+            const clientDns = localStorage.getItem(LS_KEYS.CLIENT_DNS);
+            if (clientDns !== null) document.getElementById('client-dns').value = clientDns;
+
+            const savedIsAdvancedMode = localStorage.getItem(LS_KEYS.IS_ADVANCED_MODE);
+            if (savedIsAdvancedMode === 'true') {
+                isAdvancedMode = true; // Set the variable first
+                advancedFields.style.display = 'block';
+                toggleButton.textContent = 'Hide Advanced Options';
+            } else {
+                isAdvancedMode = false; // Ensure it's false if not saved as true
+                advancedFields.style.display = 'none';
+                toggleButton.textContent = 'Show Advanced Options';
+            }
+
+            const savedRules = localStorage.getItem(LS_KEYS.PORT_FORWARDING_RULES);
+            if (savedRules) {
+                try {
+                    const rules = JSON.parse(savedRules);
+                    if (Array.isArray(rules)) {
+                        rules.forEach(ruleData => addPortForwardingRule(ruleData));
+                    }
+                } catch (e) {
+                    console.error("Error parsing saved port forwarding rules:", e);
+                    localStorage.removeItem(LS_KEYS.PORT_FORWARDING_RULES); // Clear invalid data
+                }
+            }
+        }
 
         toggleButton.addEventListener('click', () => {
             isAdvancedMode = !isAdvancedMode;
@@ -233,13 +316,16 @@
                 advancedFields.style.display = 'none';
                 toggleButton.textContent = 'Show Advanced Options';
             }
+            // LOCALSTORAGE: Save advanced mode state when toggled
+            localStorage.setItem(LS_KEYS.IS_ADVANCED_MODE, isAdvancedMode.toString());
         });
 
-        let ruleCounter = 0;
 
-        function addPortForwardingRule() {
+        // LOCALSTORAGE: Modify addPortForwardingRule to accept initial data for pre-filling
+        function addPortForwardingRule(initialData = null) {
             const container = document.getElementById('port-forwarding-rules');
-            const ruleId = `rule-${ruleCounter++}`;
+            const currentRuleNumber = ++ruleCounter; // Increment first, then use
+            const ruleId = `rule-${currentRuleNumber}`; // Use the incremented number
             const ruleDiv = document.createElement('div');
 
             ruleDiv.id = ruleId;
@@ -247,7 +333,7 @@
 
             ruleDiv.innerHTML = `
                 <div class="rule-header">
-                    <h4>Rule ${ruleCounter}</h4>
+                    <h4>Rule ${currentRuleNumber}</h4>
                     <span id="${ruleId}-remove">Remove</span>
                 </div>
                 <div class="rule-fields">
@@ -268,15 +354,37 @@
                     </div>
                 </div>
             `;
+            container.appendChild(ruleDiv); // Append before trying to querySelector inside it
+
+            // LOCALSTORAGE: Pre-fill fields if initialData is provided
+            if (initialData) {
+                const protocolSelect = ruleDiv.querySelector(`#${ruleId}-protocol`);
+                if (protocolSelect) protocolSelect.value = initialData.protocol || 'tcp';
+
+                const portInput = ruleDiv.querySelector(`#${ruleId}-port`);
+                if (portInput) portInput.value = initialData.port || '';
+
+                const destInput = ruleDiv.querySelector(`#${ruleId}-destination`);
+                if (destInput) destInput.value = initialData.destinationIPv4 || '172.30.0.2';
+            }
+
 
             const removeButton = ruleDiv.querySelector(`#${ruleId}-remove`);
-            removeButton.addEventListener('click', () => removeRule(ruleId));
-            container.appendChild(ruleDiv);
+            removeButton.addEventListener('click', () => {
+                removeRule(ruleId);
+                // LOCALSTORAGE: Save settings after removing a rule
+                saveSettings();
+            });
         }
 
         function removeRule(ruleId) {
             const ruleDiv = document.getElementById(ruleId);
-            ruleDiv.remove();
+            if (ruleDiv) {
+                 ruleDiv.remove();
+            }
+            // Note: We don't decrement ruleCounter here, as IDs should remain unique.
+            // The numbering "Rule X" might become non-sequential if rules are deleted from the middle,
+            // but this is generally acceptable for UI.
         }
 
         function autoResizeTextarea(textarea) {
@@ -289,7 +397,6 @@
             const serverPort = document.getElementById('listen-port').value.trim();
             const subnet = document.getElementById('subnet').value.trim();
             const subnetIPv6 = document.getElementById('subnet_ipv6').value.trim();
-            const wanInterface = document.getElementById('wan-interface').value.trim();
             const allowedIps = document.getElementById('allowed-ips').value.trim();
             const clientDNS = document.getElementById('client-dns').value.trim();
             const numClients = parseInt(document.getElementById('num-clients').value.trim(), 10);
@@ -298,10 +405,29 @@
                 alert("Number of clients must be between 1 and 253.");
                 return;
             }
-            if (!serverAddress || !serverPort || !subnet || !wanInterface || !subnetIPv6 || !clientDNS || !allowedIps) {
-                alert("Please fill in all required fields");
+            // Check if advanced fields are visible OR if their values are default, otherwise require them
+            let advancedFieldsRequired = true;
+            if (!isAdvancedMode) {
+                // If advanced mode is hidden, check if values are defaults. If not, they were likely loaded.
+                // A simpler check might be to always validate if values are present.
+                if (document.getElementById('subnet').value === "172.30.0.0/24" &&
+                    document.getElementById('subnet_ipv6').value === "dead:beef:b00b::/64" &&
+                    document.getElementById('allowed-ips').value === "0.0.0.0/0, ::/0" &&
+                    document.getElementById('client-dns').value === "8.8.8.8, 2001:4860:4860::8888") {
+                    advancedFieldsRequired = false; // Not strictly required if defaults and hidden
+                }
+            }
+
+            if (!serverAddress || !serverPort ||
+                (advancedFieldsRequired && (!subnet || !subnetIPv6 || !clientDNS || !allowedIps))) {
+                let message = "Please fill in all required fields.";
+                if (advancedFieldsRequired && (!subnet || !subnetIPv6 || !clientDNS || !allowedIps)) {
+                    message += " This includes advanced options if they are shown or have non-default values.";
+                }
+                alert(message);
                 return;
             }
+
 
             const [subnetBase, cidr] = subnet.split('/');
             const subnetParts = subnetBase.split('.');
@@ -309,6 +435,12 @@
             const serverIp = `${baseIp}1/${cidr}`;
             const [subnetBaseIPv6, cidrIPv6] = subnetIPv6.split('/');
             const serverIpIPv6 = `${subnetBaseIPv6.replace('::', '::1')}/${cidrIPv6}`;
+
+            // Ensure wireguard.js is loaded
+            if (typeof window.wireguard === 'undefined' || typeof window.wireguard.generateKeypair !== 'function') {
+                alert("Error: wireguard.js library not loaded. Cannot generate keys.");
+                return;
+            }
             const serverKeys = window.wireguard.generateKeypair();
 
             let serverConfig = `
@@ -348,7 +480,7 @@ PostDown = ip6tables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPM
 
             const portForwardingRules = [];
             document.querySelectorAll('.rule-container').forEach(ruleDiv => {
-                const protocol = ruleDiv.querySelector('select').value;
+                const protocol = ruleDiv.querySelector('select[id$="-protocol"]').value;
                 const port = ruleDiv.querySelector('input[id$="-port"]').value.trim();
                 const destinationIPv4 = ruleDiv.querySelector('input[id$="-destination"]').value.trim();
                 if (protocol && port && destinationIPv4) {
@@ -357,19 +489,21 @@ PostDown = ip6tables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPM
                 }
             });
 
+
+            const getWanDetectScript = `WAN=$(ip r | awk '/default/ {print $5}')`;
             portForwardingRules.forEach(({ protocol, port, destinationIPv4, destinationIPv6 }) => {
                 serverConfig += `
-PostUp = iptables -t nat -A PREROUTING -i ${wanInterface} -p ${protocol} --dport ${port} -j DNAT --to-destination ${destinationIPv4}
-PostUp = ip6tables -t nat -A PREROUTING -i ${wanInterface} -p ${protocol} --dport ${port} -j DNAT --to-destination ${destinationIPv6}
-PostDown = iptables -t nat -D PREROUTING -i ${wanInterface} -p ${protocol} --dport ${port} -j DNAT --to-destination ${destinationIPv4}
-PostDown = ip6tables -t nat -D PREROUTING -i ${wanInterface} -p ${protocol} --dport ${port} -j DNAT --to-destination ${destinationIPv6}
+PostUp = bash -c '${getWanDetectScript} && iptables -t nat -A PREROUTING -i $WAN -p ${protocol} --dport ${port} -j DNAT --to-destination ${destinationIPv4}'
+PostUp = bash -c '${getWanDetectScript} && ip6tables -t nat -A PREROUTING -i $WAN -p ${protocol} --dport ${port} -j DNAT --to-destination ${destinationIPv6}'
+PostDown = bash -c '${getWanDetectScript} && iptables -t nat -D PREROUTING -i $WAN -p ${protocol} --dport ${port} -j DNAT --to-destination ${destinationIPv4}'
+PostDown = bash -c '${getWanDetectScript} && ip6tables -t nat -D PREROUTING -i $WAN -p ${protocol} --dport ${port} -j DNAT --to-destination ${destinationIPv6}'
 `;
             });
 
             let clientConfigs = [];
             for (let i = 1; i <= numClients; i++) {
-                const clientIp = `${baseIp}${i + 1}/${cidr}`;
-                const clientIpIPv6 = `${subnetBaseIPv6.replace('::', `::${i + 1}`)}/${cidrIPv6}`;
+                const clientIp = `${baseIp}${i + 1}/${cidr.split('/')[1]}`; // ensure cidr mask is used
+                const clientIpIPv6 = `${subnetBaseIPv6.replace('::', `::${i + 1}`)}/${cidrIPv6.split('/')[1]}`; // ensure cidr mask is used
                 const clientKeys = window.wireguard.generateKeypair();
                 serverConfig += `
 [Peer]
@@ -391,10 +525,10 @@ PersistentKeepalive = 25`;
 
             let output = '';
             output += `<h3>### Server configuration</h3>`;
-            output += `<div class="config-block"><textarea class="output-textarea" readonly>${serverConfig}</textarea><button class="copy-button" data-clipboard="${encodeURIComponent(serverConfig)}">Copy</button></div>\n\n`;
+            output += `<div class="config-block"><textarea class="output-textarea" readonly>${serverConfig.trim()}</textarea><button class="copy-button" data-clipboard="${encodeURIComponent(serverConfig.trim())}">Copy</button></div>\n\n`;
             clientConfigs.forEach((config, index) => {
                 output += `<h3>### Client ${index + 1} configuration</h3>`;
-                output += `<div class="config-block"><textarea class="output-textarea" readonly>${config}</textarea><button class="copy-button" data-clipboard="${encodeURIComponent(config)}">Copy</button></div>\n\n`;
+                output += `<div class="config-block"><textarea class="output-textarea" readonly>${config.trim()}</textarea><button class="copy-button" data-clipboard="${encodeURIComponent(config.trim())}">Copy</button></div>\n\n`;
             });
             const outputDiv = document.getElementById('output');
             outputDiv.innerHTML = output;
@@ -414,10 +548,20 @@ PersistentKeepalive = 25`;
                         setTimeout(() => {
                             button.textContent = 'Copy';
                         }, 2000);
+                    }).catch(err => {
+                        console.error('Failed to copy: ', err);
+                        alert('Failed to copy text. Your browser might not support this feature or it was blocked.');
                     });
                 });
             });
+
+            // LOCALSTORAGE: Save settings after successful generation
+            saveSettings();
         }
+
+        // LOCALSTORAGE: Call loadSettings when the DOM is ready
+        document.addEventListener('DOMContentLoaded', loadSettings);
+
     </script>
     <script src="wireguard.js" defer ></script>
 </body>
